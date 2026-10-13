@@ -1,79 +1,23 @@
-# ==========================================
-# LangChain Core
-# ==========================================
-langchain
+
+# Core application
+streamlit
+python-dotenv
+
+# LangChain integrations
 langchain-core
 langchain-community
 langchain-text-splitters
 langchain-groq
 langchain-huggingface
-langchain_chroma
+langchain-chroma
 
-# ==========================================
-# Groq
-# ==========================================
-groq
+# PDF loading
+pymupdf
 
-# ==========================================
-# Hugging Face
-# ==========================================
-huggingface-hub
+# Embeddings
 sentence-transformers
 transformers
+huggingface-hub
 
-# ==========================================
-# Vector Database
-# ==========================================
-faiss-cpu
-
-# ==========================================
-# Document Loaders
-# ==========================================
-pypdf
-python-docx
-docx2txt
-unstructured
-
-# ==========================================
-# Data Processing
-# ==========================================
-pandas
-numpy
-
-# ==========================================
-# Environment Variables
-# ==========================================
-python-dotenv
-
-# ==========================================
-# Tokenization
-# ==========================================
-tiktoken
-
-# ==========================================
-# Web / HTML Documents
-# ==========================================
-beautifulsoup4
-requests
-
-# ==========================================
-# Structured Output
-# ==========================================
-pydantic
-
-# ==========================================
-# Streamlit UI
-# ==========================================
-streamlit
-
-# ==========================================
-# API / Backend (Optional)
-# ==========================================
-fastapi
-uvicorn
-
-# ==========================================
-# Jupyter / Development
-# ==========================================
-jupyter
-ipykernel
+# Chroma vector database
+chromadb

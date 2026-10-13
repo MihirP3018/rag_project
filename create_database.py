@@ -1,28 +1,45 @@
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
-from dotenv import load_dotenv
+"""
+Optional command-line PDF indexer.
 
-load_dotenv()
+Usage:
+    python create_database.py "path/to/your.pdf"
 
-data = PyPDFLoader("Document_Loder/Cryptography-and-network-security-principles-and-practice.pdf")
-docs = data.load()
+The Streamlit app automatically processes uploaded PDFs through main.py.
+This script uses the same process_pdf() function.
+"""
 
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size = 1000,
-    chunk_overlap = 10
-)
+from pydoc import doc
+import sys
+from pathlib import Path
+from main import process_pdf
 
-chunks = splitter.split_documents(docs)
+def main():
+    if len(sys.argv) != 2:
+        print('Usafe: Python create_database.py "path/to/your.pdf"')
+        raise SystemExit(1)
 
-embeddings = HuggingFaceEmbeddings(
-    model_name = "sentence-transformers/all-MiniLM-L6-v2"
-)
+    pdf_path = Path(1)
 
-vectorstore = Chroma.from_documents(
-    documents = chunks,
-    embedding = embeddings,
-    persist_directory = "chroma_db"
-)
+    if not pdf_path.is_file():
+        print(f"PDF not found: {pdf_path}")
+        raise SystemExit(1)
 
+    try:
+        (
+            vectorstore,
+            pages,
+            chunks,
+            document_id,
+        ) = process_pdf(pdf_path.read_bytes())
+
+    except Exception as exc:
+        print(f"Could not index PDF: {exc}")
+        raise SystemExit(1) from exc
+
+    print("PDF indexed successfully.")
+    print(f"Pages: {pages}")
+    print(f"Chunks: {chunks}")
+    print(f"Documnet ID: {document_id}")
+
+if __name__ == "__main__":
+    main()

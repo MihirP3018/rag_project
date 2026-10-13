@@ -1,14 +1,20 @@
-
-# Environment variables and secrets
+# Secrets
 .env
+.env.*
 
-# Python virtual environments
+# Python environments and cache
 .venv/
 venv/
-
-# Python cache
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
-# Generated Chroma vector database
+# Persistent vector indexes
+vectorstores/
 chroma_db/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

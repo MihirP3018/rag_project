@@ -1,5 +1,5 @@
 import streamlit as st
-from main import process_pdf, ask_question
+from main import process_pdf, ask_question, FALLBACK_ANSWER
 
 # ---------------- Page Configuration ----------------
 st.set_page_config(
@@ -61,6 +61,7 @@ defaults = {
     "book_name": None,
     "book_pages": 0,
     "book_chunks": 0,
+    "document_id": None,
     "pending_query": None,
 }
 for key, value in defaults.items():
@@ -79,7 +80,9 @@ with st.sidebar:
         st.divider()
         st.markdown("### 📌 Current Book")
         st.caption(st.session_state.book_name)
+
         col1, col2 = st.columns(2)
+
         col1.metric("Pages", st.session_state.book_pages)
         col2.metric("Chunks", st.session_state.book_chunks)
 
@@ -87,12 +90,26 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
+        if st.button(
+            "📕 Unload Current Book",
+            use_container_width = True
+        ):
+            st.session_state.vectorstore = None
+            st.session_state.book_name = None
+            st.session_state.book_pages = 0
+            st.session_state.book_chunks = 0
+            st.session_state.document_id = None
+            st.session_state.messages = []
+            st.session_state.pending_query = None
+            st.rerun()
+
     st.divider()
     st.markdown("### ℹ️ How it works")
     st.caption(
         "1. Upload a PDF\n\n"
         "2. Click **Process Book**\n\n"
-        "3. Ask questions in the chat"
+        "3. Ask questions in the chat\n\n"
+        "4. Check the source page numbers"
     )
 
 # ---------------- Header ----------------
@@ -100,7 +117,7 @@ st.markdown(
     """
     <div class="hero">
         <h1>📚 Book RAG Assistant</h1>
-        <p>Upload a PDF book and ask questions. Answers come only from the book, with page sources.</p>
+        <p>Upload a PDF book and ask questions. Answers are grounded in the book, with source pages.</p>
     </div>
     """,
     unsafe_allow_html = True,
@@ -111,20 +128,31 @@ if process_button:
     if uploaded_file is None:
         st.warning("⚠️ Please upload a PDF book first.")
     else:
-        with st.spinner("📚 Processing your book... this can take a minute for large books."):
-            pdf_bytes = uploaded_file.getbuffer()
-            vectorstore, pages, chunks = process_pdf(pdf_bytes)
+        try:    
+            with st.spinner("📚 Processing your book... this can take a minute for large books."):
+                (
+                    vectorstore,
+                    pages,
+                    chunks,
+                    document_id,
+                ) = process_pdf(uploaded_file.getvalue())
 
-            st.session_state.vectorstore = vectorstore
-            st.session_state.book_name = uploaded_file.name
-            st.session_state.book_pages = pages
-            st.session_state.book_chunks = chunks
-            st.session_state.messages = []
+                # Update the current book only after processing succeeds.
+                st.session_state.vectorstore = vectorstore
+                st.session_state.book_name = uploaded_file.name
+                st.session_state.book_pages = pages
+                st.session_state.book_chunks = chunks
+                st.session_state.document_id = document_id
+                st.session_state.messages = []
+                st.session_state.pending_query = None
 
-        st.toast("Book processed successfully!", icon = "✅")
-        st.rerun()
+                st.success("Book processed successfully!")
+                st.rerun()
 
-# ---------------- Main Area ----------------
+        except Exception as exc:
+            st.error(f"Could not process this PDF: {exc}")
+
+# Main Area 
 if st.session_state.vectorstore is None:
     with st.container(border = True):
         st.markdown("### 👋 Welcome")
@@ -147,9 +175,9 @@ else:
             "Explain the key concepts in simple words",
         ]
         cols = st.columns(len(suggestions))
-        for col, text in zip(cols, suggestions):
-            if col.button(text, use_container_width = True):
-                st.session_state.pending_query = text
+        for col, suggestion in zip(cols, suggestions):
+            if col.button(suggestion, use_container_width = True):
+                st.session_state.pending_query = suggestion
                 st.rerun()
 
 # ---------------- Display Previous Chat Messages ----------------
@@ -157,8 +185,12 @@ for message in st.session_state.messages:
     avatar = "🧑" if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar = avatar):
         st.markdown(message["content"])
-        if message.get("sources"):
-            st.caption("📄 Sources: pages " + ", ".join(map(str, message["sources"])))
+        if (
+            message["content"].strip() != FALLBACK_ANSWER
+            and message.get("sources")
+        ):
+            source_text = ", ".join(map(str, message["sources"]))
+            st.caption(f"📄 Source pages: {source_text}")
 
 # ---------------- Chat Input ----------------
 query = st.chat_input("Ask a question about the book...")
@@ -184,13 +216,28 @@ if query:
                     answer, pages = ask_question(
                         st.session_state.vectorstore, query, history
                     )
-                except Exception as e:
-                    answer, pages = f"⚠️ Something went wrong: {e}", []
+                except Exception as exc:
+                    # Keep technical details in the terminal for debugging.
+                    print(
+                        f"Question-answering error: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+
+                    answer = (
+                        "I couldn't answer that right now. Check that "
+                        "GROQ_API_KEY is set correctly in your .env file "
+                        "and that your internet connection works."
+                    )
+
+                    pages = []
 
             st.markdown(answer)
-            if pages:
-                st.caption("📄 Sources: pages " + ", ".join(map(str, pages)))
 
+            if answer.strip() != FALLBACK_ANSWER and pages:
+                source_text = ", ".join(map(str, pages))
+                st.caption(f"📄 Source pages: {source_text}")
+
+        # Save the assistant response for future follow-up questions.
         st.session_state.messages.append(
             {"role": "assistant", "content": answer, "sources": pages}
         )
